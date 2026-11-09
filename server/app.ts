@@ -18,18 +18,39 @@ function parseCorsOrigins(): string[] {
     .filter(Boolean);
 }
 
+/** Platform probes (Render health checks poll these every few seconds). */
+const RATE_LIMIT_EXEMPT_PATHS = new Set(['/api/health', '/api/ready']);
+
+/**
+ * True for health/readiness probes so they bypass the `/api` read limiter.
+ * Uses `baseUrl + path` because, when mounted via `app.use('/api', …)`,
+ * `req.path` is `/health` rather than `/api/health`.
+ */
+function isRateLimitExemptPath(req: express.Request): boolean {
+  const fullPath = `${req.baseUrl}${req.path}`
+    .replace(/\/+$/, '')
+    .toLowerCase();
+  return RATE_LIMIT_EXEMPT_PATHS.has(fullPath);
+}
+
 /**
  * Construct and configure the Express application instance.
  * Keep server startup concerns in `server.ts`.
  */
 export function createApp(): express.Express {
   const app = express();
+  // Trust one proxy hop in production (e.g. Render) so req.ip is the client
+  // address rather than the proxy's, keeping IP-keyed rate limits per client.
+  if (env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+  }
   const allowedOrigins = parseCorsOrigins();
   const apiReadRateLimiter = rateLimit({
     windowMs: env.RATE_LIMIT_WINDOW_MS,
     max: env.RATE_LIMIT_MAX,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: isRateLimitExemptPath,
   });
   const apiWriteRateLimiter = rateLimit({
     windowMs: env.RATE_LIMIT_WINDOW_MS,
