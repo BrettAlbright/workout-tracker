@@ -79,6 +79,7 @@ The format is inspired by Keep a Changelog and uses semantic-style version secti
 
 ### Fixed
 
+- **Rate limiting / Render health checks:** **`/api/health`** and **`/api/ready`** now skip the **`/api`** read rate limiter (via the limiter's **`skip`** option, matching on **`baseUrl + path`**), so frequent platform health checks no longer get **429** and use up the shared budget. Other **`/api`** routes stay limited; **`RATE_LIMIT_MAX`** / **`RATE_LIMIT_WINDOW_MS`** are unchanged. **`server/app.ts`** also sets **`trust proxy`** to **1** in production so IP-keyed limits see the client IP behind Render's proxy instead of one shared proxy address. Vitest **`server/routes/api-rate-limit.test.ts`**.
 - **`client/src/index.css`:** keep **`@import 'tailwindcss'`** (not `url('tailwindcss')`). **Stylelint** `import-notation` **--fix** rewrote the import so **`@tailwindcss/vite`** did not run and **Tailwind utilities disappeared**; disabled for that line with **`stylelint-disable-next-line`**.
 
 - **`database/reset.sh`:** also **`DROP SCHEMA IF EXISTS drizzle CASCADE`** (Drizzle’s migration journal); dropping only **`public`** made **`drizzle-kit migrate`** no-op while **`public`** stayed empty. Sourcing **`server/.env`** uses **`set -a`** / **`export DATABASE_URL`** for the same DB as **`psql`**. Post-migrate check for **`exercise_types`**; **`db:seed`** exits **1** on failure.
